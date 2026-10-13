@@ -1,49 +1,530 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Test kết nối Python API</title>
-</head>
-<body>
-  <h1>Kiểm tra kết nối Python</h1>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTTP Traffic Monitor</title>
 
-  <button id="testButton">Gọi Python API</button>
-  <p id="status">Chưa kết nối</p>
-  <ul id="results"></ul>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2b;
+      --border: #27334a;
+      --text: #e8eef8;
+      --muted: #91a0b8;
+      --green: #42d392;
+      --blue: #72a7ff;
+      --orange: #ffbd69;
+      --red: #ff7b85;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 system-ui, sans-serif;
+    }
+
+    header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 0 0 14px; }
+    p { margin: 0; }
+    .muted { color: var(--muted); }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 7px 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+    }
+
+    .dot.online { background: var(--green); }
+    .dot.offline { background: var(--red); }
+
+    main {
+      max-width: 1500px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .panel, .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .stat { padding: 16px; }
+    .stat .value { font-size: 26px; font-weight: 700; }
+    .stat .label { color: var(--muted); font-size: 12px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel { padding: 16px; min-width: 0; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    button, select {
+      border: 1px solid var(--border);
+      background: #1b2740;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button:hover { border-color: var(--blue); }
+    button.primary { background: #234d8c; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+      font-size: 12px;
+    }
+
+    th { color: var(--muted); font-weight: 500; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover, tbody tr.selected { background: #1b2740; }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      background: #25334a;
+    }
+
+    .tag.request { color: var(--blue); }
+    .tag.response { color: var(--green); }
+    .tag.error { color: var(--red); }
+
+    .detail {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font: 12px/1.7 ui-monospace, monospace;
+      color: #c5d3e8;
+      min-height: 150px;
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .node {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 12px 6px;
+      text-align: center;
+      background: #19243a;
+    }
+
+    .arrow { color: var(--blue); font-size: 20px; }
+
+    .notice {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div>
+      <h1>HTTP Traffic Monitor</h1>
+      <p class="muted">Theo dõi request và response do FastAPI xử lý</p>
+    </div>
+
+    <div class="status">
+      <span id="statusDot" class="dot"></span>
+      <span id="connectionStatus">Đang kết nối...</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="notice">
+      Dashboard hiển thị sự kiện ở tầng ứng dụng HTTP, không phải danh sách
+      packet TCP/TLS thô. Nội dung body và thông tin xác thực không được ghi log.
+    </div>
+
+    <section class="stats">
+      <div class="stat">
+        <div class="label">Tổng request</div>
+        <div id="totalRequests" class="value">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Response 2xx</div>
+        <div id="successResponses" class="value">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Response lỗi 4xx/5xx</div>
+        <div id="errorResponses" class="value">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Client đang kết nối dashboard</div>
+        <div id="dashboardClients" class="value">—</div>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <button id="testButton" class="primary">Gửi GET /api/test</button>
+      <button id="demoButton">Gửi GET /api/demo</button>
+      <select id="filter">
+        <option value="all">Tất cả sự kiện</option>
+        <option value="request_received">Request nhận vào</option>
+        <option value="response_sent">Response gửi ra</option>
+      </select>
+      <button id="clearButton">Xóa danh sách</button>
+    </div>
+
+    <section class="layout">
+      <div class="panel">
+        <h2>Live Event Stream</h2>
+        <p class="muted" style="margin-bottom:12px">
+          Sự kiện mới xuất hiện ở đầu danh sách.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Loại</th>
+                <th>Method</th>
+                <th>Path</th>
+                <th>Status</th>
+                <th>Thời gian xử lý</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTable">
+              <tr>
+                <td colspan="6" class="muted">
+                  Chưa có sự kiện. Hãy gửi request đến Python server.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Request / Response Inspector</h2>
+        <div class="flow">
+          <div class="node">Client</div>
+          <div class="arrow">⇄</div>
+          <div class="node">FastAPI</div>
+        </div>
+        <p class="muted" style="margin-bottom:12px">
+          Chọn một sự kiện để xem metadata.
+        </p>
+        <div id="detail" class="detail">Chưa chọn sự kiện.</div>
+      </div>
+    </section>
+  </main>
 
   <script>
-    const API_URL = "https://ff4aer.bot-keep.xyz";
+    // THAY BẰNG DOMAIN PUBLIC CỦA PYTHON SERVER.
+    // Ví dụ: https://python-api.example.com
+    const API_BASE = "https://ff4aer.bot-keep.xyz";
 
-    document.getElementById("testButton").addEventListener("click", async () => {
-      const status = document.getElementById("status");
-      const results = document.getElementById("results");
+    const API_URL = API_BASE.replace(/\/+$/, "");
+    const WS_URL = API_URL.replace(/^https:/, "wss:")
+                           .replace(/^http:/, "ws:") + "/ws/monitor";
 
-      status.textContent = "Đang gọi Python...";
-      results.replaceChildren();
+    const events = [];
+    const latestByRequest = new Map();
+    let selectedId = null;
+    let ws;
+    let reconnectTimer;
+    let totalRequests = 0;
+    let successResponses = 0;
+    let errorResponses = 0;
+
+    const $ = (id) => document.getElementById(id);
+
+    function setConnection(online, message) {
+      $("statusDot").className = "dot " + (online ? "online" : "offline");
+      $("connectionStatus").textContent = message;
+    }
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString();
+    }
+
+    function addEvent(event) {
+      if (event.type === "history") {
+        // Server gửi lịch sử gần đây khi dashboard kết nối.
+        event.events.forEach((item) => {
+          if (!events.some((e) => e.id === item.id)) {
+            events.push(item);
+            updateCounters(item, false);
+          }
+          latestByRequest.set(item.request_id, item);
+        });
+
+        events.sort((a, b) =>
+          new Date(b.timestamp) - new Date(a.timestamp)
+        );
+        render();
+        return;
+      }
+
+      if (event.type === "pong") return;
+
+      events.unshift(event);
+      if (events.length > 200) events.pop();
+
+      if (event.request_id) {
+        latestByRequest.set(event.request_id, event);
+      }
+
+      updateCounters(event, true);
+      render();
+    }
+
+    function updateCounters(event, isLive) {
+      // Chỉ đếm khi có sự kiện mới trực tiếp; lịch sử được đếm
+      // riêng lúc dashboard nạp lần đầu.
+      if (event.type === "request_received") {
+        totalRequests++;
+      }
+
+      if (event.type === "response_sent") {
+        if (event.status_code >= 200 && event.status_code < 400) {
+          successResponses++;
+        } else if (event.status_code >= 400) {
+          errorResponses++;
+        }
+      }
+
+      $("totalRequests").textContent = totalRequests;
+      $("successResponses").textContent = successResponses;
+      $("errorResponses").textContent = errorResponses;
+    }
+
+    function connect() {
+      clearTimeout(reconnectTimer);
+      setConnection(false, "Đang kết nối...");
+
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => setConnection(true, "Đã kết nối");
+
+      ws.onmessage = (message) => {
+        try {
+          addEvent(JSON.parse(message.data));
+        } catch (error) {
+          console.error("Dữ liệu WebSocket không hợp lệ", error);
+        }
+      };
+
+      ws.onerror = () => setConnection(false, "Lỗi kết nối");
+
+      ws.onclose = () => {
+        setConnection(false, "Mất kết nối — đang thử lại");
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+    }
+
+    function render() {
+      const filter = $("filter").value;
+      const visible = events.filter((event) =>
+        filter === "all" || event.type === filter
+      );
+
+      const tbody = $("eventsTable");
+      tbody.replaceChildren();
+
+      if (!visible.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 6;
+        cell.textContent = "Không có sự kiện phù hợp.";
+        cell.className = "muted";
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+
+      visible.forEach((event) => {
+        const row = document.createElement("tr");
+        if (event.id === selectedId) row.className = "selected";
+
+        const type = event.type === "request_received"
+          ? "REQUEST"
+          : "RESPONSE";
+
+        const status = event.status_code ?? "—";
+        const duration = event.duration_ms != null
+          ? event.duration_ms + " ms"
+          : "—";
+
+        const values = [
+          formatTime(event.timestamp),
+          type,
+          event.method ?? "—",
+          event.path ?? "—",
+          status,
+          duration
+        ];
+
+        values.forEach((value, index) => {
+          const cell = document.createElement("td");
+          cell.textContent = String(value);
+
+          if (index === 1) {
+            const tag = document.createElement("span");
+            tag.className = "tag " +
+              (event.type === "request_received" ? "request" :
+              (event.status_code >= 400 ? "error" : "response"));
+            tag.textContent = value;
+            cell.replaceChildren(tag);
+          }
+
+          row.appendChild(cell);
+        });
+
+        row.addEventListener("click", () => {
+          selectedId = event.id;
+          showDetail(event);
+          render();
+        });
+
+        tbody.appendChild(row);
+      });
+
+      $("dashboardClients").textContent = ws && ws.readyState === 1
+        ? "Đã kết nối"
+        : "—";
+    }
+
+    function showDetail(event) {
+      // Chỉ hiển thị các trường metadata được server cho phép.
+      const detail = {
+        event_type: event.type,
+        timestamp: event.timestamp,
+        request_id: event.request_id,
+        method: event.method,
+        path: event.path,
+        http_version: event.http_version,
+        client_ip: event.client_ip,
+        client_port: event.client_port,
+        content_type: event.content_type,
+        content_length: event.content_length,
+        status_code: event.status_code,
+        response_length: event.response_length,
+        duration_ms: event.duration_ms
+      };
+
+      $("detail").textContent = JSON.stringify(detail, null, 2);
+    }
+
+    async function sendTest(path, button) {
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Đang gửi...";
 
       try {
-        const response = await fetch(`${API_URL}/api/test`);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        const response = await fetch(API_URL + path, {
+          method: "GET"
+        });
 
         const data = await response.json();
-
-        status.textContent = data.message;
-
-        data.images.forEach(image => {
-          const item = document.createElement("li");
-          item.textContent =
-            `${image.name} — độ tương đồng: ${image.similarity}`;
-          results.appendChild(item);
-        });
+        console.log("API response:", response.status, data);
       } catch (error) {
-        status.textContent = `Lỗi kết nối: ${error.message}`;
+        alert(
+          "Không gọi được API. Kiểm tra API_BASE, HTTPS và CORS.\n" +
+          error.message
+        );
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
       }
+    }
+
+    $("testButton").addEventListener("click", () =>
+      sendTest("/api/test", $("testButton"))
+    );
+
+    $("demoButton").addEventListener("click", () =>
+      sendTest("/api/demo", $("demoButton"))
+    );
+
+    $("filter").addEventListener("change", render);
+
+    $("clearButton").addEventListener("click", () => {
+      events.length = 0;
+      latestByRequest.clear();
+      selectedId = null;
+      totalRequests = 0;
+      successResponses = 0;
+      errorResponses = 0;
+      updateCounters({ type: "clear" }, false);
+      $("detail").textContent = "Chưa chọn sự kiện.";
+      render();
     });
+
+    connect();
   </script>
 </body>
 </html>
