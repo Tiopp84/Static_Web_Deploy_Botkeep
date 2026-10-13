@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLS Handshake Lab — Bắt tay, trao đổi khóa, chứng chỉ</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2b;--border:#27334a;--text:#e8eef8;--muted:#91a0b8;--green:#42d392;--blue:#72a7ff;--orange:#ffbd69;--red:#ff7b85;--purple:#c792ea;--yellow:#e5c07b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 system-ui,sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:14px 0 6px;color:var(--muted)}
+a{color:var(--blue)}.muted{color:var(--muted)}
+main{max-width:1400px;margin:auto;padding:18px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;min-width:0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+button,select{border:1px solid var(--border);background:#1b2740;color:var(--text);border-radius:8px;padding:9px 12px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--blue)}button.primary{background:#234d8c}button.active{border-color:var(--green);background:#14352a}button:disabled{opacity:.45}
+.grid{display:grid;grid-template-columns:280px minmax(0,1fr) minmax(0,1.1fr);gap:12px;align-items:start}
+.steps{list-style:none;margin:0;padding:0;max-height:640px;overflow:auto}
+.steps li{border:1px solid var(--border);border-radius:9px;padding:9px 10px;margin-bottom:8px;cursor:pointer;background:#0e1626}
+.steps li.done{border-color:#2c4a38}.steps li.cur{border-color:var(--blue);background:#16294a}
+.steps .n{display:inline-block;min-width:24px;height:24px;text-align:center;border-radius:50%;background:#25334a;font-size:12px;line-height:24px;margin-right:8px}
+.steps li.cur .n{background:var(--blue);color:#06122a;font-weight:700}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;margin:2px 4px 2px 0;border:1px solid var(--border)}
+.b-asym{background:#12294d;color:var(--blue);border-color:#2c4f8a}.b-sym{background:#0e2e1f;color:var(--green);border-color:#1f4d38}
+.b-hash{background:#2a1737;color:var(--purple);border-color:#5b2f7a}.b-clear{background:#222c40;color:var(--muted)}.b-enc{background:#2e2108;color:var(--orange);border-color:#6b4d16}
+.b-danger{background:#3a1215;color:var(--red);border-color:#7a2f35}
+.arena{display:flex;align-items:stretch;gap:10px;margin:10px 0}
+.node{flex:1;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;background:#19243a}
+.node .big{font-size:28px}.wire{flex:1.4;position:relative;border-left:2px dashed #33507e;border-right:2px dashed #33507e;min-height:220px;padding:6px}
+.pkt{border:1px solid var(--border);border-radius:8px;padding:6px 8px;margin:6px 4px;font-size:12px;background:#0e1626;animation:fly .5s ease}
+@keyframes fly{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+.hex{font:12px/1.7 ui-monospace,monospace;word-break:break-all;background:#0d1425;border:1px solid var(--border);border-radius:8px;padding:10px;white-space:pre-wrap}
+.crypto{border-radius:8px;padding:10px;margin-top:8px;border:1px solid var(--border)}
+.crypto.asym{border-color:#2c4f8a;background:#0e1c33}.crypto.sym{border-color:#1f4d38;background:#0c2117}.crypto.hash{border-color:#5b2f7a;background:#1d1226}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.key{border:1px dashed var(--border);border-radius:8px;padding:8px;font:11.5px/1.5 ui-monospace,monospace;min-height:64px}
+.key.have{border-style:solid;border-color:var(--green);background:#0c2117}
+.key .k{color:var(--muted);font-size:11px}
+.certchain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}
+.cert{border:1px solid var(--green);border-radius:8px;padding:8px 10px;background:#0c2117;font-size:12px}
+.cert.bad{border-color:var(--red);background:#2a0f12}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{border-bottom:1px solid var(--border);padding:8px;text-align:left}th{color:var(--muted)}
+.progress{height:8px;background:#1b2740;border-radius:99px;overflow:hidden;margin:8px 0}.progress i{display:block;height:100%;background:var(--blue);width:0}
+@media(max-width:1080px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<div><h1>🔐 TLS Handshake Lab</h1><p class="muted">Trực quan hóa bắt tay TLS: trao đổi khóa • byte • chứng chỉ • khóa phiên. <a href="index.html">← về Monitor</a></p></div>
+<div><span class="badge b-clear">🔓 cleartext</span><span class="badge b-enc">🔒 mã hoá</span><span class="badge b-asym">🔑 bất đối xứng</span><span class="badge b-sym">🔑 đối xứng</span><span class="badge b-hash">hash/HMAC</span></div>
+</header>
+<main>
+<div class="toolbar">
+<button data-v="tls13" class="primary active">TLS 1.3 (ECDHE)</button>
+<button data-v="tls12-ecdhe">TLS 1.2 (ECDHE)</button>
+<button data-v="tls12-rsa">TLS 1.2 (RSA — legacy)</button>
+<button id="prevBtn">◀ Prev</button><button id="playBtn">▶ Auto</button><button id="nextBtn">Next ▶</button>
+<select id="speed"><option value="2500">Chậm</option><option value="1400" selected>Vừa</option><option value="700">Nhanh</option></select>
+</div>
+<div class="progress"><i id="bar"></i></div>
+<section class="grid">
+<div class="panel"><h2>Các bước</h2><ol class="steps" id="steps"></ol></div>
+<div class="panel"><h2 id="stepTitle">—</h2><p class="muted" id="stepWhy">—</p>
+<div class="arena"><div class="node"><div class="big">💻</div><b>Client</b><div class="muted" id="clientState">…</div></div>
+<div class="wire" id="wire"></div>
+<div class="node"><div class="big">🖥️</div><b>Server</b><div class="muted" id="serverState">…</div></div></div>
+<h3>Chuỗi byte trên dây</h3><div class="hex" id="hexBox">—</div>
+<div id="cryptoBox"></div>
+</div>
+<div class="panel"><h2>Khóa phiên &amp; chứng chỉ</h2>
+<div class="keys" id="keys"></div>
+<h3>Xác thực chứng chỉ</h3><div id="certBox"></div>
+<h3>Tại sao hybrid? (bất đối xứng + đối xứng)</h3>
+<p class="muted" style="font-size:12.5px">• <span class="badge b-asym">Bất đối xứng</span> RSA/ECDH + chữ ký: chậm (~1000×), chỉ dùng <b>1 lần</b> lúc bắt tay để thống nhất bí mật chung mà không để lộ trên dây.<br>• <span class="badge b-sym">Đối xứng</span> AES-GCM/ChaCha20: nhanh, dùng <b>1 khóa phiên duy nhất</b> cho toàn bộ Application Data sau đó.<br>• <span class="badge b-hash">HKDF/PRF + Finished</span>: trộn random hai phía + bí mật trao đổi → khóa phiên, rồi HMAC toàn bộ transcript để chống can thiệp.</p>
+<h3>So sánh phiên bản</h3>
+<table><tr><th></th><th>TLS 1.2 RSA</th><th>TLS 1.2 ECDHE</th><th>TLS 1.3</th></tr>
+<tr><td>RTT</td><td>2</td><td>2</td><td><b>1</b></td></tr>
+<tr><td>Cert</td><td>Trần 🔓</td><td>Trần 🔓</td><td>Mã hoá 🔒</td></tr>
+<tr><td>PFS</td><td><span class="badge b-danger">KHÔNG</span></td><td>Có</td><td>Có (bắt buộc)</td></tr>
+<tr><td>CCS riêng</td><td>Có</td><td>Có</td><td>Bỏ</td></tr>
+<tr><td>KDF</td><td>PRF</td><td>PRF</td><td>HKDF</td></tr></table>
+</div>
+</section>
+</main>
+<script>
+const R = (n)=>Array.from({length:n},()=>"0123456789abcdef"[Math.floor(Math.random()*16)]).join("");
+let CR = R(64), SR = R(64); // client/server random demo
+const SC = {
+tls13: {label:"TLS 1.3", steps:[
+{t:"TCP 3-way handshake",d:"Client ⇄ Server",why:"Mở kết nối TCP trước. Chưa có mã hoá gì.",hex:"SYN → SYN/ACK → ACK  (flags [SYN],[SYN,ACK],[ACK])",crypto:{k:"none",t:"Chưa mã hoá",x:"TCP chỉ đồng bộ sequence number."},keys:{},cert:"none"},
+{t:"ClientHello",d:"Client → Server",why:"Gửi random 32B, SNI (domain, còn lộ), ALPN, và key_share X25519 (public ephemeral) luôn → chỉ cần 1-RTT.",hex:"16 03 01 02 00 …\nSNI=demo.bot-keep.xyz (CLEARTEXT)\nkey_share: X25519 pub = 9f:"+R(16)+"…\nrandom: "+CR.slice(0,32)+"…",crypto:{k:"asym",t:"BẤT ĐỐI XỨNG — ECDHE (ephemeral)",x:"Mỗi bên tự sinh cặp khóa tạm (a, a·G). Gửi public qua dây. Kẻ nghe lén có public cũng KHÔNG tính được secret nếu không biết a hoặc b. Secret = a·(b·G)."},keys:{client_random:CR},cert:"none"},
+{t:"ServerHello",d:"Server → Client",why:"Chốt cipher TLS_AES_128_GCM_SHA256 + gửi key_share của server. Đây là gói TRẦN cuối cùng.",hex:"16 03 03 00 7a … cipher=0x1301 (TLS_AES_128_GCM_SHA256)\nserver_random: "+SR.slice(0,32)+"…\nkey_share: X25519 pub = 3c:"+R(16)+"…",crypto:{k:"asym",t:"BẤT ĐỐI XỨNG — hoàn tất ECDHE",x:"Hai bên giờ tính được shared secret S. Từ S + 2 random → HKDF sinh handshake_secret. Attacker thiếu private ephemeral nên đứng ngoài."},keys:{client_random:CR,server_random:SR,shared:"X25519(S) = "+R(24)+"… (chỉ 2 bên biết)"},cert:"none"},
+{t:"{EncryptedExtensions}{Certificate}{CertVerify}{Finished}",d:"Server → Client 🔒",why:"Toàn bộ MÃ HOÁ bằng handshake key. Cert + chữ ký số (RSA-PSS/ECDSA) chứng minh server giữ private key của CN=*.bot-keep.xyz.",hex:"17 03 03 0b 10 8f:3a:9c:e4… (ciphertext)\n— giải mã với key mới thấy —\nCN=*.bot-keep.xyz, Issuer=Let's Encrypt",crypto:{k:"sym",t:"ĐỐI XỨNG — AES-GCM giải mã handshake",x:"Key = HKDF(handshake_secret). AES-GCM vừa mã hoá vừa xác thực (tag 16B) nên không thể sửa lén. CertVerify = sign(transcript) bằng private key dài hạn của server."},keys:{client_random:CR,server_random:SR,shared:"X25519(S) = …",handshake:"handshake_secret = HKDF(S, HS)…",cert:"CN=*.bot-keep.xyz ✔"},cert:"ok"},
+{t:"Xác minh chứng chỉ",d:"Client tự kiểm tra",why:"3 việc: (1) chữ ký CA có hợp lệ? (2) CN/SAN khớp domain? (3) còn hạn + không bị revoke? Sai 1 cái → Alert Bad Certificate.",hex:"verify chain: leaf → R11 → ISRG Root X1 (trong trust store)\nsignature: RSA-PSS-SHA256 … OK\nCN=*.bot-keep.xyz == demo.bot-keep.xyz ✔",crypto:{k:"hash",t:"HASH + CHỮ KÝ SỐ",x:"Chữ ký = encrypt(hash(cert), CA_private). Client decrypt bằng CA_public có sẵn → so hash. Không cần giữ bí mật, chỉ cần đảm bảo không giả mạo."},keys:{client_random:CR,server_random:SR,shared:"X25519(S) = …",handshake:"handshake_secret ✔",cert:"CN=*.bot-keep.xyz ✔"},cert:"ok"},
+{t:"{Finished} của Client",d:"Client → Server 🔒",why:"Client gửi HMAC toàn bộ transcript bằng handshake key → server biết client tính đúng key và không ai sửa gói giữa đường.",hex:"17 03 03 00 40 2a:9f:3c:d1…\nverify_data = HMAC(handshake_key, transcript)",crypto:{k:"hash",t:"HMAC xác nhận",x:"Nếu attacker sửa 1 bit ở ClientHello, HMAC sẽ lệch và handshake bị hủy. Đây là chống downgrade/tamper."},keys:{client_random:CR,server_random:SR,shared:"X25519(S) = …",handshake:"handshake_secret ✔",master:"master_secret = HKDF(handshake ✔)",cert:"✔"},cert:"ok"},
+{t:"Application Data",d:"Client ⇄ Server 🔒",why:"Từ đây dùng KHÓA PHIÊN đối xứng cho mọi request. Cùng 1 GET /api/demo nhưng attacker chỉ thấy 17 03 03 … ciphertext.",hex:"→ 17 03 03 01 20 9e:f2:77… (GET /api/demo đã mã hoá)\n← 17 03 03 01 6a 41:bc:0d… ({\"success\":true} đã mã hoá)",crypto:{k:"sym",t:"ĐỐI XỨNG — AES_128_GCM / ChaCha20",x:"Cùng 1 key cho mã hoá + giải mã hai chiều (mỗi hướng 1 key riêng sinh từ master). Nhanh gấp ~1000× so với RSA, mỗi gói có nonce riêng nên không lộ mẫu."},keys:{client_random:CR,server_random:SR,shared:"X25519(S) ✓ đã xóa",handshake:"✔",master:"master_secret ✔",app:"client_key/server_key = HKDF(master)…"},cert:"ok"},
+]},
+"tls12-ecdhe": {label:"TLS 1.2 ECDHE", steps:[
+{t:"TCP + ClientHello (trần)",d:"Client → Server",why:"Giống 1.3 nhưng CHƯA gửi key_share theo kiểu 1-RTT, cipher đề xuất ECDHE-RSA-AES128-GCM-SHA256.",hex:"16 03 01 01 df … SNI cleartext\nrandom: "+CR.slice(0,32)+"…",crypto:{k:"asym",t:"BẤT ĐỐI XỨNG — ECDHE",x:"Sẽ trao đổi public ECDHE ở 2 gói sau (ServerKeyExchange + ClientKeyExchange)."},keys:{client_random:CR},cert:"none"},
+{t:"ServerHello + Certificate TRẦN + ServerHelloDone",d:"Server → Client 🔓",why:"KHÁC BIỆT LỚN NHẤT với 1.3: certificate gửi TRẦN, ai cũng đọc được CN/Issuer mà không cần key.",hex:"16 03 03 … CERT DER: CN=*.bot-keep.xyz, Issuer=Let's Encrypt (đọc được!)",crypto:{k:"asym",t:"BẤT ĐỐI XỨNG — RSA/ECDSA xác thực",x:"Server gửi cert + ServerKeyExchange (ECDHE params + chữ ký). Client verify chữ ký như 1.3."},keys:{client_random:CR,server_random:SR,cert:"CN=*.bot-keep.xyz (TRẦN)"},cert:"ok"},
+{t:"ClientKeyExchange + ChangeCipherSpec + Finished",d:"Client → Server",why:"Client gửi ECDHE public của mình (trần), rồi gói CCS (0x14) báo 'từ giờ bật mã hoá', rồi Finished mã hoá.",hex:"16 03 03 … ClientKeyExchange (pubkey trần)\n14 03 03 00 01 01 (CCS)\n16 03 03 … Finished (đã mã hoá)",crypto:{k:"asym",t:"ECDHE + CCS",x:"Premaster = ECDHE shared. Master = PRF(premaster, 'master secret', CR+SR). CCS là điểm 1.3 đã bỏ."},keys:{client_random:CR,server_random:SR,shared:"ECDH shared …",master:"master = PRF(premaster, CR+SR)"},cert:"ok"},
+{t:"CCS + Finished của Server",d:"Server → Client",why:"Server bật mã hoá chiều về, xác nhận transcript. Tổng 2-RTT.",hex:"14 03 03 00 01 01\n16 03 03 … Finished",crypto:{k:"hash",t:"PRF + HMAC",x:"PRF TLS 1.2 = P_MD5 XOR P_SHA256 (legacy) — 1.3 thay bằng HKDF sạch hơn."},keys:{client_random:CR,server_random:SR,master:"master ✔",app:"session keys = PRF(master, CR+SR)"},cert:"ok"},
+{t:"Application Data (AES-GCM)",d:"Client ⇄ Server 🔒",why:"Giống 1.3 ở lớp record, nhưng KDF là PRF.",hex:"17 03 03 … ciphertext",crypto:{k:"sym",t:"ĐỐI XỨNG",x:"AES128-GCM-SHA256: AES mã hoá, GHASH xác thực."},keys:{client_random:CR,server_random:SR,master:"master ✔",app:"session keys ✔"},cert:"ok"},
+]},
+"tls12-rsa": {label:"TLS 1.2 RSA (legacy, không PFS)", steps:[
+{t:"ClientHello",d:"Client → Server",why:"Đề xuất cipher TLS_RSA_WITH_AES_128_GCM_SHA256 (RSA key transport).",hex:"16 03 01 … cipher: RSA",crypto:{k:"none",t:"Chuẩn bị RSA",x:"Server sẽ dùng đúng cặp khóa của chứng chỉ để nhận bí mật."},keys:{client_random:CR},cert:"none"},
+{t:"ServerHello + Certificate TRẦN",d:"Server → Client 🔓",why:"Cert chứa RSA PUBLIC KEY. Ai cũng lấy được public key — đúng thiết kế.",hex:"CERT DER … RSA pub (e=65537, n=ab:12:…)",crypto:{k:"asym",t:"BẤT ĐỐI XỨNG — RSA public",x:"Public key mã hoá được, chỉ private key giải được. Server là bên duy nhất giữ private."},keys:{client_random:CR,server_random:SR,cert:"RSA pub ✔"},cert:"ok"},
+{t:"ClientKeyExchange = RSA_Encrypt(premaster)",d:"Client → Server",why:"Client sinh premaster 48B, MÃ HOÁ bằng RSA public của server rồi gửi. Chỉ server mở được.",hex:"16 03 03 … RSA ciphertext = "+R(32)+"…\n(premaster thật ẩn bên trong)",crypto:{k:"asym",t:"BẤT ĐỐI XỨNG — RSA PKCS#1 v1.5",x:"c = m^e mod n. Không có ECDHE nên KHÔNG có forward secrecy: nếu lộ private key sau này, attacker giải mã lại toàn bộ phiên cũ đã ghi lại!"},keys:{client_random:CR,server_random:SR,shared:"premaster (chỉ server đọc được)",master:"master = PRF(premaster, CR+SR)"},cert:"ok"},
+{t:"⚠️ Vì sao RSA key-transport bị loại ở TLS 1.3?",d:"Cảnh báo",why:"1 điểm lộ private key = lộ mọi phiên quá khứ. ECDHE sinh khóa tạm mỗi phiên, xóa sau dùng → PFS. TLS 1.3 bỏ hẳn RSA key transport.",hex:"attacker ghi lại ciphertext hôm nay → 1 năm sau trộm được private key → đọc lại được!",crypto:{k:"asym",t:"Bài học PFS",x:"Dùng ECDHE/DHE: secret chỉ tồn tại trong RAM phiên đó. Xóa là mất vĩnh viễn."},keys:{client_random:CR,server_random:SR,master:"master ✔ (nhưng quá khứ vẫn rủi ro)"},cert:"ok"},
+{t:"CCS + Finished → Application Data",d:"Client ⇄ Server 🔒",why:"Phần còn lại giống TLS 1.2 ECDHE: bật mã hoá đối xứng.",hex:"14 03 03… + 17 03 03… ciphertext",crypto:{k:"sym",t:"ĐỐI XỨNG — AES-GCM",x:"Sau khi có master, RSA hết vai trò."},keys:{master:"master ✔",app:"session keys ✔"},cert:"ok"},
+]}};
+let cur="tls13", idx=0, timer=null;
+const $=(id)=>document.getElementById(id);
+document.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-v]").forEach(x=>x.classList.remove("active"));b.classList.add("active");cur=b.dataset.v;idx=0;stop();render();});
+$("nextBtn").onclick=()=>{idx=Math.min(idx+1,SC[cur].steps.length-1);render();};
+$("prevBtn").onclick=()=>{idx=Math.max(idx-1,0);render();};
+$("playBtn").onclick=()=>{timer?stop():(timer=setInterval(()=>{idx++;if(idx>=SC[cur].steps.length){stop();return;}render();},+$("speed").value),$("playBtn").textContent="⏸ Pause");};
+function stop(){clearInterval(timer);timer=null;$("playBtn").textContent="▶ Auto";}
+function render(){
+const S=SC[cur], s=S.steps[idx];
+$("bar").style.width=((idx+1)/S.steps.length*100)+"%";
+$("steps").innerHTML=S.steps.map((p,i)=>`<li class="${i<idx?"done":""} ${i===idx?"cur":""}" data-i="${i}"><span class="n">${i+1}</span><b>${p.t}</b><br><span class="muted">${p.d}</span></li>`).join("");
+document.querySelectorAll("#steps li").forEach(li=>li.onclick=()=>{idx=+li.dataset.i;render();});
+$("stepTitle").textContent=`Bước ${idx+1}/${S.steps.length} [${S.label}]: ${s.t}`;
+$("stepWhy").textContent=s.why;
+$("clientState").textContent=s.d.includes("Client →")?"📤 gửi":"📥 nhận";
+$("serverState").textContent=s.d.includes("Server →")?"📤 gửi":"📥 nhận";
+$("wire").innerHTML=S.steps.slice(0,idx+1).map((p,i)=>`<div class="pkt" style="${i===idx?"border-color:var(--blue)":"opacity:.65"}"><b>#${i+1}</b> ${p.d} — ${p.t}</div>`).join("");
+$("hexBox").textContent=s.hex;
+const c=s.crypto;
+$("cryptoBox").innerHTML=`<div class="crypto ${c.k}"><b>${c.k==="asym"?"🔑 BẤT ĐỐI XỨNG":c.k==="sym"?"🔑 ĐỐI XỨNG":c.k==="hash"?"#️⃣ HASH/HMAC":"—"}: ${c.t}</b><br>${c.x}</div>`;
+const KN=["client_random","server_random","shared","handshake","master","app","cert"];
+$("keys").innerHTML=KN.map(k=>{const v=(s.keys||{})[k];return `<div class="key ${v?"have":""}"><div class="k">${k}</div>${v?String(v).slice(0,64):"—"}</div>`;}).join("");
+$("certBox").innerHTML=s.cert==="none"?'<span class="muted">Chưa tới bước chứng chỉ.</span>':(s.cert==="ok"?'<div class="certchain"><div class="cert">leaf<br>CN=*.bot-keep.xyz</div>→<div class="cert">R11<br>Let\'s Encrypt</div>→<div class="cert">ISRG Root X1<br>(trust store) ✔</div></div><span class="badge b-sym">✔ verified</span>':'');
+}
+render();
+</script>
+</body>
+</html>
