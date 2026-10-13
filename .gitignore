@@ -1,0 +1,11 @@
+# Static hosting — chỉ cần index.html
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# Draft / backup của editor
+*~
+*.bak
+*.tmp
