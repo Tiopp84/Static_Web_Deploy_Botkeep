@@ -3,528 +3,214 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HTTP Traffic Monitor</title>
-
+  <title>TLS/SSL Visualizer + HTTP Monitor</title>
   <style>
-    :root {
-      color-scheme: dark;
-      --bg: #0b1020;
-      --panel: #121a2b;
-      --border: #27334a;
-      --text: #e8eef8;
-      --muted: #91a0b8;
-      --green: #42d392;
-      --blue: #72a7ff;
-      --orange: #ffbd69;
-      --red: #ff7b85;
-    }
-
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2b; --border:#27334a; --text:#e8eef8; --muted:#91a0b8; --green:#42d392; --blue:#72a7ff; --orange:#ffbd69; --red:#ff7b85; --purple:#c792ea; }
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font: 14px/1.5 system-ui, sans-serif;
-    }
-
-    header {
-      padding: 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    h2 { font-size: 15px; margin: 0 0 14px; }
-    p { margin: 0; }
-    .muted { color: var(--muted); }
-
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 7px 12px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      background: var(--orange);
-      border-radius: 50%;
-    }
-
-    .dot.online { background: var(--green); }
-    .dot.offline { background: var(--red); }
-
-    main {
-      max-width: 1500px;
-      margin: auto;
-      padding: 20px;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .panel, .stat {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-    }
-
-    .stat { padding: 16px; }
-    .stat .value { font-size: 26px; font-weight: 700; }
-    .stat .label { color: var(--muted); font-size: 12px; }
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
-      gap: 16px;
-      align-items: start;
-    }
-
-    .panel { padding: 16px; min-width: 0; }
-
-    .toolbar {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-
-    button, select {
-      border: 1px solid var(--border);
-      background: #1b2740;
-      color: var(--text);
-      border-radius: 8px;
-      padding: 9px 12px;
-      cursor: pointer;
-      font: inherit;
-    }
-
-    button:hover { border-color: var(--blue); }
-    button.primary { background: #234d8c; }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-
-    .table-wrap { overflow-x: auto; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      white-space: nowrap;
-    }
-
-    th, td {
-      border-bottom: 1px solid var(--border);
-      padding: 10px 8px;
-      font-size: 12px;
-    }
-
-    th { color: var(--muted); font-weight: 500; }
-    tbody tr { cursor: pointer; }
-    tbody tr:hover, tbody tr.selected { background: #1b2740; }
-
-    .tag {
-      display: inline-block;
-      padding: 3px 7px;
-      border-radius: 5px;
-      font-size: 11px;
-      background: #25334a;
-    }
-
-    .tag.request { color: var(--blue); }
-    .tag.response { color: var(--green); }
-    .tag.error { color: var(--red); }
-
-    .detail {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      font: 12px/1.7 ui-monospace, monospace;
-      color: #c5d3e8;
-      min-height: 150px;
-    }
-
-    .flow {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 16px 0;
-    }
-
-    .node {
-      flex: 1;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 12px 6px;
-      text-align: center;
-      background: #19243a;
-    }
-
-    .arrow { color: var(--blue); font-size: 20px; }
-
-    .notice {
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      margin-bottom: 14px;
-    }
-
-    @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
-      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif; }
+    header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    h1 { font-size:21px; margin:0 0 4px; } h2 { font-size:15px; margin:0 0 12px; }
+    .muted { color:var(--muted); } p { margin:0; }
+    .status { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:999px; padding:7px 12px; }
+    .dot { width:8px; height:8px; background:var(--orange); border-radius:50%; } .dot.online{background:var(--green);} .dot.offline{background:var(--red);}
+    main { max-width:1500px; margin:auto; padding:20px; }
+    .tabs { display:flex; gap:8px; margin-bottom:16px; }
+    .tabs button.active { background:#234d8c; border-color:var(--blue); }
+    .panel,.stat { background:var(--panel); border:1px solid var(--border); border-radius:12px; }
+    .panel { padding:16px; min-width:0; } .stat { padding:16px; } .stat .value{font-size:26px;font-weight:700;} .stat .label{color:var(--muted);font-size:12px;}
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .layout { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(300px,1fr); gap:16px; align-items:start; }
+    .tls-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr); gap:12px; align-items:start; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
+    button,select,input { border:1px solid var(--border); background:#1b2740; color:var(--text); border-radius:8px; padding:9px 12px; cursor:pointer; font:inherit; }
+    input[type=text]{cursor:text; min-width:220px;} button:hover{border-color:var(--blue);} button.primary{background:#234d8c;} button:disabled{opacity:.5;cursor:not-allowed;}
+    .scen-btn.active{border-color:var(--green); background:#14352a;}
+    .table-wrap{overflow-x:auto; max-height:520px; overflow-y:auto;}
+    table{width:100%; border-collapse:collapse; text-align:left; white-space:nowrap;}
+    th,td{border-bottom:1px solid var(--border); padding:9px 8px; font-size:12px;}
+    th{color:var(--muted); font-weight:500; position:sticky; top:0; background:var(--panel);}
+    tbody tr{cursor:pointer;} tbody tr:hover,tbody tr.selected{background:#1b2740;}
+    .tag{display:inline-block; padding:3px 7px; border-radius:5px; font-size:11px; background:#25334a;}
+    .tag.request{color:var(--blue);} .tag.response{color:var(--green);} .tag.error{color:var(--red);} .tag.enc{color:var(--orange);} .tag.clear{color:var(--green);} .tag.alert{color:#fff;background:#a33;}
+    .detail{white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.7 ui-monospace,monospace; color:#c5d3e8; min-height:150px; max-height:520px; overflow:auto;}
+    .hexbox{font:12px/1.7 ui-monospace,monospace; word-break:break-all; background:#0d1425; border:1px solid var(--border); border-radius:8px; padding:10px; min-height:120px;}
+    .plainbox{margin-top:8px; background:#0e2118; border:1px solid #1f4d38; border-radius:8px; padding:10px; font:12px/1.6 ui-monospace,monospace; white-space:pre-wrap;}
+    .cipherbox{background:#241a08; border-color:#6b4d16;}
+    .notebox{margin-top:8px; border:1px dashed var(--border); border-radius:8px; padding:10px; color:var(--muted); font-size:12.5px;}
+    .flow{display:flex; align-items:center; gap:10px; margin:12px 0;} .node{flex:1; border:1px solid var(--border); border-radius:9px; padding:12px 6px; text-align:center; background:#19243a;} .arrow{color:var(--blue); font-size:20px;}
+    .notice{padding:10px 12px; border:1px solid var(--border); border-radius:8px; color:var(--muted); margin-bottom:14px;}
+    .seq{font:11.5px/1.5 ui-monospace,monospace; margin-top:10px; border-top:1px solid var(--border); padding-top:10px; max-height:260px; overflow:auto;}
+    .seq .line{padding:3px 0; border-bottom:1px dotted #223;} .lock{color:var(--orange);} .open{color:var(--green);}
+    @media(max-width:1100px){ .tls-layout{grid-template-columns:1fr;} .layout{grid-template-columns:1fr;} .stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
   </style>
 </head>
-
 <body>
-  <header>
-    <div>
-      <h1>HTTP Traffic Monitor</h1>
-      <p class="muted">Theo dõi request và response do FastAPI xử lý</p>
-    </div>
+<header>
+  <div><h1>TLS/SSL Visualizer + HTTP Monitor</h1>
+    <p class="muted">Tab Live: traffic thật L7 &nbsp;•&nbsp; Tab TLS: gói tin giả lập kiểu Wireshark để dạy handshake</p></div>
+  <div class="status"><span id="statusDot" class="dot"></span><span id="connectionStatus">Đang kết nối...</span></div>
+</header>
+<main>
+  <div class="tabs">
+    <button id="tabLive" class="active">Live Monitor (dữ liệu thật)</button>
+    <button id="tabTls">TLS Visualizer (giả lập Wireshark)</button>
+  </div>
 
-    <div class="status">
-      <span id="statusDot" class="dot"></span>
-      <span id="connectionStatus">Đang kết nối...</span>
-    </div>
-  </header>
-
-  <main>
-    <div class="notice">
-      Dashboard hiển thị sự kiện ở tầng ứng dụng HTTP, không phải danh sách
-      packet TCP/TLS thô. Nội dung body và thông tin xác thực không được ghi log.
-    </div>
-
+  <!-- ============ LIVE ============ -->
+  <section id="viewLive">
+    <div class="notice">Dashboard hiển thị sự kiện ở tầng ứng dụng HTTP. Đã bổ sung <b>scheme / tls_version / sni</b> (hướng B). Body, cookie, Authorization không được log.</div>
     <section class="stats">
-      <div class="stat">
-        <div class="label">Tổng request</div>
-        <div id="totalRequests" class="value">0</div>
-      </div>
-      <div class="stat">
-        <div class="label">Response 2xx</div>
-        <div id="successResponses" class="value">0</div>
-      </div>
-      <div class="stat">
-        <div class="label">Response lỗi 4xx/5xx</div>
-        <div id="errorResponses" class="value">0</div>
-      </div>
-      <div class="stat">
-        <div class="label">Client đang kết nối dashboard</div>
-        <div id="dashboardClients" class="value">—</div>
-      </div>
+      <div class="stat"><div class="label">Tổng request</div><div id="totalRequests" class="value">0</div></div>
+      <div class="stat"><div class="label">Response 2xx/3xx</div><div id="successResponses" class="value">0</div></div>
+      <div class="stat"><div class="label">Response lỗi 4xx/5xx</div><div id="errorResponses" class="value">0</div></div>
+      <div class="stat"><div class="label">HTTPS / HTTP plain</div><div id="tlsStat" class="value" style="font-size:16px">—</div></div>
     </section>
-
     <div class="toolbar">
       <button id="testButton" class="primary">Gửi GET /api/test</button>
       <button id="demoButton">Gửi GET /api/demo</button>
-      <select id="filter">
-        <option value="all">Tất cả sự kiện</option>
-        <option value="request_received">Request nhận vào</option>
-        <option value="response_sent">Response gửi ra</option>
-      </select>
+      <select id="filter"><option value="all">Tất cả sự kiện</option><option value="request_received">Request nhận vào</option><option value="response_sent">Response gửi ra</option></select>
       <button id="clearButton">Xóa danh sách</button>
     </div>
-
     <section class="layout">
-      <div class="panel">
-        <h2>Live Event Stream</h2>
-        <p class="muted" style="margin-bottom:12px">
-          Sự kiện mới xuất hiện ở đầu danh sách.
-        </p>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Thời gian</th>
-                <th>Loại</th>
-                <th>Method</th>
-                <th>Path</th>
-                <th>Status</th>
-                <th>Thời gian xử lý</th>
-              </tr>
-            </thead>
-            <tbody id="eventsTable">
-              <tr>
-                <td colspan="6" class="muted">
-                  Chưa có sự kiện. Hãy gửi request đến Python server.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="panel"><h2>Live Event Stream</h2>
+        <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Loại</th><th>Method</th><th>Path</th><th>Scheme/TLS</th><th>Status</th><th>ms</th></tr></thead>
+        <tbody id="eventsTable"><tr><td colspan="7" class="muted">Chưa có sự kiện.</td></tr></tbody></table></div>
       </div>
-
-      <div class="panel">
-        <h2>Request / Response Inspector</h2>
-        <div class="flow">
-          <div class="node">Client</div>
-          <div class="arrow">⇄</div>
-          <div class="node">FastAPI</div>
-        </div>
-        <p class="muted" style="margin-bottom:12px">
-          Chọn một sự kiện để xem metadata.
-        </p>
+      <div class="panel"><h2>Request / Response Inspector</h2>
+        <div class="flow"><div class="node">Client</div><div class="arrow">⇄</div><div class="node">FastAPI</div></div>
         <div id="detail" class="detail">Chưa chọn sự kiện.</div>
       </div>
     </section>
-  </main>
+  </section>
 
-  <script>
-    // THAY BẰNG DOMAIN PUBLIC CỦA PYTHON SERVER.
-    // Ví dụ: https://python-api.example.com
-    const API_BASE = "https://ff4aer.bot-keep.xyz";
+  <!-- ============ TLS ============ -->
+  <section id="viewTls" style="display:none">
+    <div class="notice">Gói tin <b>giả lập có kịch bản</b> từ <code>/api/tls/scenarios</code> + <code>/ws/tls</code> — đủ để dạy TLS 1.2/1.3, SNI, cert, MITM mà không cần quyền sniff. Muốn gói thật: bắt bằng Wireshark local rồi đối chiếu.</div>
+    <div class="toolbar" id="scenBar">
+      <button class="scen-btn" data-s="http-plain">1. HTTP plain</button>
+      <button class="scen-btn active" data-s="tls13">2. TLS 1.3 ✓</button>
+      <button class="scen-btn" data-s="tls12">3. TLS 1.2</button>
+      <button class="scen-btn" data-s="mitm-selfsigned">4. MITM thất bại</button>
+      <button class="scen-btn" data-s="expired-cert">5. Cert hết hạn</button>
+      <button id="replayBtn" class="primary">▶ Replay</button>
+      <input type="text" id="tlsFilter" placeholder="Lọc: tls, alert, certificate...">
+    </div>
+    <div class="panel" style="margin-bottom:12px"><h2 id="tlsTitle">—</h2><p class="muted" id="tlsDesc">—</p>
+      <p style="margin-top:6px"><span class="tag clear" id="tlsVer">—</span> <span class="tag enc" id="tlsCipher">—</span></p>
+    </div>
+    <section class="tls-layout">
+      <div class="panel"><h2>Packet List <span class="muted" id="tlsCount"></span></h2>
+        <div class="table-wrap"><table><thead><tr><th>No</th><th>Src → Dst</th><th>Proto</th><th>Info</th><th>🔒</th></tr></thead>
+        <tbody id="tlsTable"><tr><td colspan="5" class="muted">Bấm Replay để stream gói tin.</td></tr></tbody></table></div>
+        <div class="seq" id="tlsSeq"></div>
+      </div>
+      <div class="panel"><h2>Packet Details</h2><div id="tlsDetail" class="detail">Chưa chọn gói tin.</div><div id="tlsNote" class="notebox" style="display:none"></div></div>
+      <div class="panel"><h2>Hex Dump / Decrypted</h2>
+        <div class="hexbox" id="tlsHex">—</div>
+        <div class="plainbox" id="tlsPlain" style="display:none"></div>
+      </div>
+    </section>
+  </section>
+</main>
 
-    const API_URL = API_BASE.replace(/\/+$/, "");
-    const WS_URL = API_URL.replace(/^https:/, "wss:")
-                           .replace(/^http:/, "ws:") + "/ws/monitor";
+<script>
+const API_BASE = "https://ff4aer.bot-keep.xyz";
+const API_URL = API_BASE.replace(/\/+$/,"");
+const WS_MON = API_URL.replace(/^https:/,"wss:").replace(/^http:/,"ws:") + "/ws/monitor";
+const tlsWs = (s)=> API_URL.replace(/^https:/,"wss:").replace(/^http:/,"ws:") + "/ws/tls?scenario=" + s;
 
-    const events = [];
-    const latestByRequest = new Map();
-    let selectedId = null;
-    let ws;
-    let reconnectTimer;
-    let totalRequests = 0;
-    let successResponses = 0;
-    let errorResponses = 0;
+/* ---------- Tabs ---------- */
+const $ = (id)=>document.getElementById(id);
+$("tabLive").onclick = ()=>{ $("tabLive").classList.add("active"); $("tabTls").classList.remove("active"); $("viewLive").style.display=""; $("viewTls").style.display="none"; };
+$("tabTls").onclick = ()=>{ $("tabTls").classList.add("active"); $("tabLive").classList.remove("active"); $("viewTls").style.display=""; $("viewLive").style.display="none"; if(!tlsPackets.length) loadTls(currentScenario); };
 
-    const $ = (id) => document.getElementById(id);
+/* ---------- Live monitor (giữ logic cũ + TLS badge) ---------- */
+const events=[]; let selectedId=null, ws, reconnectTimer, totalRequests=0, successResponses=0, errorResponses=0, httpsCount=0, httpCount=0;
+function setConnection(o,m){ $("statusDot").className="dot "+(o?"online":"offline"); $("connectionStatus").textContent=m; }
+function formatTime(t){ return new Date(t).toLocaleTimeString(); }
+function addEvent(e){
+  if(e.type==="history"){ e.events.forEach(i=>{ if(!events.some(x=>x.id===i.id)){events.push(i); updateCounters(i);} }); events.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)); render(); return; }
+  if(e.type==="pong") return;
+  events.unshift(e); if(events.length>200) events.pop(); updateCounters(e); render();
+}
+function updateCounters(e){
+  if(e.type==="request_received"){ totalRequests++; if((e.scheme||"").includes("https")||(e.tls_version||"").includes("https")) httpsCount++; else if(e.scheme==="http") httpCount++; }
+  if(e.type==="response_sent"){ if(e.status_code>=200&&e.status_code<400) successResponses++; else if(e.status_code>=400) errorResponses++; }
+  $("totalRequests").textContent=totalRequests; $("successResponses").textContent=successResponses; $("errorResponses").textContent=errorResponses;
+  $("tlsStat").textContent = (httpsCount||httpCount)? `https:${httpsCount} http:${httpCount}` : "—";
+}
+function connect(){ clearTimeout(reconnectTimer); setConnection(false,"Đang kết nối..."); ws=new WebSocket(WS_MON);
+  ws.onopen=()=>setConnection(true,"Đã kết nối"); ws.onmessage=(m)=>{ try{addEvent(JSON.parse(m.data));}catch(e){} };
+  ws.onerror=()=>setConnection(false,"Lỗi kết nối"); ws.onclose=()=>{ setConnection(false,"Mất kết nối — thử lại"); reconnectTimer=setTimeout(connect,3000); }; }
+function render(){
+  const f=$("filter").value, vis=events.filter(e=>f==="all"||e.type===f), tb=$("eventsTable"); tb.replaceChildren();
+  if(!vis.length){ const r=document.createElement("tr"),c=document.createElement("td"); c.colSpan=7; c.className="muted"; c.textContent="Không có sự kiện."; r.appendChild(c); tb.appendChild(r); return; }
+  vis.forEach(e=>{ const r=document.createElement("tr"); if(e.id===selectedId) r.className="selected";
+    const type=e.type==="request_received"?"REQUEST":"RESPONSE";
+    const tlsBadge=e.scheme==="http"?"http 🔓":((e.tls_version||"https").slice(0,22)+" 🔒");
+    [formatTime(e.timestamp),type,e.method??"—",e.path??"—",tlsBadge,e.status_code??"—",e.duration_ms!=null?e.duration_ms+" ms":"—"].forEach((v,i)=>{
+      const c=document.createElement("td"); c.textContent=String(v);
+      if(i===1){ const t=document.createElement("span"); t.className="tag "+(e.type==="request_received"?"request":(e.status_code>=400?"error":"response")); t.textContent=v; c.replaceChildren(t); }
+      r.appendChild(c); });
+    r.onclick=()=>{ selectedId=e.id; showDetail(e); render(); }; tb.appendChild(r); });
+}
+function showDetail(e){ $("detail").textContent=JSON.stringify({event_type:e.type,timestamp:e.timestamp,request_id:e.request_id,method:e.method,path:e.path,http_version:e.http_version,scheme:e.scheme,tls_version:e.tls_version,cipher:e.cipher,sni:e.sni,terminated_at_proxy:e.terminated_at_proxy,client_ip:e.client_ip,client_port:e.client_port,status_code:e.status_code,duration_ms:e.duration_ms},null,2); }
+async function sendTest(path,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent="Đang gửi...";
+  try{ const r=await fetch(API_URL+path); console.log(await r.json()); }catch(e){ alert("Không gọi được API. Kiểm tra API_BASE/CORS.\n"+e.message); } finally{ btn.disabled=false; btn.textContent=t; } }
+$("testButton").onclick=()=>sendTest("/api/test",$("testButton")); $("demoButton").onclick=()=>sendTest("/api/demo",$("demoButton"));
+$("filter").onchange=render; $("clearButton").onclick=()=>{ events.length=0; selectedId=null; totalRequests=successResponses=errorResponses=httpsCount=httpCount=0; updateCounters({type:"clear"}); $("detail").textContent="Chưa chọn sự kiện."; render(); };
+connect();
 
-    function setConnection(online, message) {
-      $("statusDot").className = "dot " + (online ? "online" : "offline");
-      $("connectionStatus").textContent = message;
-    }
-
-    function formatTime(timestamp) {
-      const date = new Date(timestamp);
-      return date.toLocaleTimeString();
-    }
-
-    function addEvent(event) {
-      if (event.type === "history") {
-        // Server gửi lịch sử gần đây khi dashboard kết nối.
-        event.events.forEach((item) => {
-          if (!events.some((e) => e.id === item.id)) {
-            events.push(item);
-            updateCounters(item, false);
-          }
-          latestByRequest.set(item.request_id, item);
-        });
-
-        events.sort((a, b) =>
-          new Date(b.timestamp) - new Date(a.timestamp)
-        );
-        render();
-        return;
-      }
-
-      if (event.type === "pong") return;
-
-      events.unshift(event);
-      if (events.length > 200) events.pop();
-
-      if (event.request_id) {
-        latestByRequest.set(event.request_id, event);
-      }
-
-      updateCounters(event, true);
-      render();
-    }
-
-    function updateCounters(event, isLive) {
-      // Chỉ đếm khi có sự kiện mới trực tiếp; lịch sử được đếm
-      // riêng lúc dashboard nạp lần đầu.
-      if (event.type === "request_received") {
-        totalRequests++;
-      }
-
-      if (event.type === "response_sent") {
-        if (event.status_code >= 200 && event.status_code < 400) {
-          successResponses++;
-        } else if (event.status_code >= 400) {
-          errorResponses++;
-        }
-      }
-
-      $("totalRequests").textContent = totalRequests;
-      $("successResponses").textContent = successResponses;
-      $("errorResponses").textContent = errorResponses;
-    }
-
-    function connect() {
-      clearTimeout(reconnectTimer);
-      setConnection(false, "Đang kết nối...");
-
-      ws = new WebSocket(WS_URL);
-
-      ws.onopen = () => setConnection(true, "Đã kết nối");
-
-      ws.onmessage = (message) => {
-        try {
-          addEvent(JSON.parse(message.data));
-        } catch (error) {
-          console.error("Dữ liệu WebSocket không hợp lệ", error);
-        }
-      };
-
-      ws.onerror = () => setConnection(false, "Lỗi kết nối");
-
-      ws.onclose = () => {
-        setConnection(false, "Mất kết nối — đang thử lại");
-        reconnectTimer = setTimeout(connect, 3000);
-      };
-    }
-
-    function render() {
-      const filter = $("filter").value;
-      const visible = events.filter((event) =>
-        filter === "all" || event.type === filter
-      );
-
-      const tbody = $("eventsTable");
-      tbody.replaceChildren();
-
-      if (!visible.length) {
-        const row = document.createElement("tr");
-        const cell = document.createElement("td");
-        cell.colSpan = 6;
-        cell.textContent = "Không có sự kiện phù hợp.";
-        cell.className = "muted";
-        row.appendChild(cell);
-        tbody.appendChild(row);
-        return;
-      }
-
-      visible.forEach((event) => {
-        const row = document.createElement("tr");
-        if (event.id === selectedId) row.className = "selected";
-
-        const type = event.type === "request_received"
-          ? "REQUEST"
-          : "RESPONSE";
-
-        const status = event.status_code ?? "—";
-        const duration = event.duration_ms != null
-          ? event.duration_ms + " ms"
-          : "—";
-
-        const values = [
-          formatTime(event.timestamp),
-          type,
-          event.method ?? "—",
-          event.path ?? "—",
-          status,
-          duration
-        ];
-
-        values.forEach((value, index) => {
-          const cell = document.createElement("td");
-          cell.textContent = String(value);
-
-          if (index === 1) {
-            const tag = document.createElement("span");
-            tag.className = "tag " +
-              (event.type === "request_received" ? "request" :
-              (event.status_code >= 400 ? "error" : "response"));
-            tag.textContent = value;
-            cell.replaceChildren(tag);
-          }
-
-          row.appendChild(cell);
-        });
-
-        row.addEventListener("click", () => {
-          selectedId = event.id;
-          showDetail(event);
-          render();
-        });
-
-        tbody.appendChild(row);
-      });
-
-      $("dashboardClients").textContent = ws && ws.readyState === 1
-        ? "Đã kết nối"
-        : "—";
-    }
-
-    function showDetail(event) {
-      // Chỉ hiển thị các trường metadata được server cho phép.
-      const detail = {
-        event_type: event.type,
-        timestamp: event.timestamp,
-        request_id: event.request_id,
-        method: event.method,
-        path: event.path,
-        http_version: event.http_version,
-        client_ip: event.client_ip,
-        client_port: event.client_port,
-        content_type: event.content_type,
-        content_length: event.content_length,
-        status_code: event.status_code,
-        response_length: event.response_length,
-        duration_ms: event.duration_ms
-      };
-
-      $("detail").textContent = JSON.stringify(detail, null, 2);
-    }
-
-    async function sendTest(path, button) {
-      button.disabled = true;
-      const originalText = button.textContent;
-      button.textContent = "Đang gửi...";
-
-      try {
-        const response = await fetch(API_URL + path, {
-          method: "GET"
-        });
-
-        const data = await response.json();
-        console.log("API response:", response.status, data);
-      } catch (error) {
-        alert(
-          "Không gọi được API. Kiểm tra API_BASE, HTTPS và CORS.\n" +
-          error.message
-        );
-      } finally {
-        button.disabled = false;
-        button.textContent = originalText;
-      }
-    }
-
-    $("testButton").addEventListener("click", () =>
-      sendTest("/api/test", $("testButton"))
-    );
-
-    $("demoButton").addEventListener("click", () =>
-      sendTest("/api/demo", $("demoButton"))
-    );
-
-    $("filter").addEventListener("change", render);
-
-    $("clearButton").addEventListener("click", () => {
-      events.length = 0;
-      latestByRequest.clear();
-      selectedId = null;
-      totalRequests = 0;
-      successResponses = 0;
-      errorResponses = 0;
-      updateCounters({ type: "clear" }, false);
-      $("detail").textContent = "Chưa chọn sự kiện.";
-      render();
-    });
-
-    connect();
-  </script>
+/* ---------- TLS Visualizer ---------- */
+let tlsPackets=[], tlsInfo={}, tlsSelected=null, currentScenario="tls13", tlsSocket=null;
+document.querySelectorAll(".scen-btn").forEach(b=>b.onclick=()=>{ document.querySelectorAll(".scen-btn").forEach(x=>x.classList.remove("active")); b.classList.add("active"); loadTls(b.dataset.s); });
+$("replayBtn").onclick=()=>loadTls(currentScenario);
+$("tlsFilter").oninput=renderTls;
+function loadTls(sid){
+  currentScenario=sid; tlsPackets=[]; tlsSelected=null; renderTls();
+  $("tlsTitle").textContent="Đang stream "+sid+" ..."; $("tlsDesc").textContent=""; try{ if(tlsSocket) tlsSocket.close(); }catch(e){}
+  let gotInfo=false;
+  try{
+    tlsSocket=new WebSocket(tlsWs(sid));
+    tlsSocket.onmessage=(m)=>{ const d=JSON.parse(m.data);
+      if(d.type==="scenario_info"){ gotInfo=true; tlsInfo=d; $("tlsTitle").textContent=d.title; $("tlsDesc").textContent=d.description; $("tlsVer").textContent=d.tls_version||"—"; $("tlsCipher").textContent=d.cipher||"—"; }
+      if(d.type==="tls_packet"){ tlsPackets.push(d.packet); if(tlsSelected==null) tlsSelected=d.packet.no; renderTls(); }
+      if(d.type==="tls_done"){ $("tlsCount").textContent=`(${tlsPackets.length} packets)`; }
+    };
+    tlsSocket.onerror=()=>{ if(!gotInfo) tlsFallback(sid); };
+    setTimeout(()=>{ if(!gotInfo&&!tlsPackets.length) tlsFallback(sid); },3500);
+  }catch(e){ tlsFallback(sid); }
+}
+async function tlsFallback(sid){ try{ if(tlsSocket) tlsSocket.close(); }catch(e){}
+  const r=await fetch(`${API_URL}/api/tls/scenarios/${sid}`); const s=await r.json();
+  tlsInfo={title:s.title,description:s.description,tls_version:s.tls_version,cipher:s.cipher};
+  $("tlsTitle").textContent=s.title; $("tlsDesc").textContent=s.description; $("tlsVer").textContent=s.tls_version; $("tlsCipher").textContent=s.cipher;
+  tlsPackets=[]; let i=0;
+  const step=()=>{ if(i>=s.packets.length){ $("tlsCount").textContent=`(${tlsPackets.length} packets)`; return; }
+    tlsPackets.push(s.packets[i]); if(tlsSelected==null) tlsSelected=s.packets[i].no; renderTls(); i++; setTimeout(step,450); };
+  step();
+}
+function renderTls(){
+  const q=($("tlsFilter").value||"").toLowerCase();
+  const vis=tlsPackets.filter(p=>!q||(p.protocol+" "+p.info+" "+JSON.stringify(p.layers)).toLowerCase().includes(q));
+  const tb=$("tlsTable"); tb.replaceChildren();
+  vis.forEach(p=>{ const r=document.createElement("tr"); if(p.no===tlsSelected) r.className="selected";
+    const lock=p.info.includes("Alert")||p.info.includes("FAKE")?"⛔":(p.encrypted?"🔒":"🔓");
+    [p.no,p.src+" → "+p.dst,p.protocol,p.info,lock].forEach((v,i)=>{ const c=document.createElement("td"); c.textContent=String(v);
+      if(i===2){ const t=document.createElement("span"); const isA=p.info.includes("Alert")||p.info.includes("FAKE");
+        t.className="tag "+(isA?"alert":(p.encrypted?"enc":"clear")); t.textContent=v; c.replaceChildren(t); }
+      r.appendChild(c); });
+    r.onclick=()=>{ tlsSelected=p.no; renderTls(); }; tb.appendChild(r); });
+  $("tlsCount").textContent=tlsPackets.length?`(${tlsPackets.length} packets)`:"";
+  $("tlsSeq").innerHTML=vis.map(p=>`<div class="line">${p.encrypted?'<span class="lock">🔒</span>':'<span class="open">🔓</span>'} #${p.no} ${p.src} → ${p.dst}: ${p.info}</div>`).join("");
+  const sel=tlsPackets.find(p=>p.no===tlsSelected);
+  if(!sel){ $("tlsDetail").textContent="Chưa chọn gói tin."; $("tlsHex").textContent="—"; $("tlsPlain").style.display="none"; $("tlsNote").style.display="none"; return; }
+  $("tlsDetail").textContent=JSON.stringify({no:sel.no,src:sel.src,dst:sel.dst,protocol:sel.protocol,info:sel.info,length:sel.length,encrypted:sel.encrypted,layers:sel.layers},null,2);
+  $("tlsHex").textContent=sel.hex||"—";
+  if(sel.plain){ $("tlsPlain").style.display=""; $("tlsPlain").textContent=(sel.encrypted?"🔒 DECRYPTED (với keylog) → ":"🔓 CLEARTEXT → ")+sel.plain;
+    $("tlsPlain").className="plainbox"+(sel.encrypted?"":" cipherbox"); } else $("tlsPlain").style.display="none";
+  if(sel.note){ $("tlsNote").style.display=""; $("tlsNote").textContent="💡 "+sel.note; } else $("tlsNote").style.display="none";
+}
+</script>
 </body>
 </html>
